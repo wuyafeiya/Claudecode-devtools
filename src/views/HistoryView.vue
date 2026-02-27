@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 
 interface Session {
   id: string
@@ -75,7 +75,42 @@ async function selectSession(session: Session) {
   }
 }
 
-onMounted(fetchSessions)
+// Auto-polling: refresh session list every 5s, refresh selected conversation every 3s
+let pollSessionsTimer: ReturnType<typeof setInterval> | null = null
+let pollDetailTimer: ReturnType<typeof setInterval> | null = null
+
+async function pollDetail() {
+  if (!selectedSession.value || loadingDetail.value) return
+  try {
+    const s = selectedSession.value
+    const res = await fetch(`/api/sessions/${encodeURIComponent(s.project)}/${encodeURIComponent(s.id)}`)
+    const data: SessionDetail = await res.json()
+    // Only update if message count changed (avoid unnecessary re-renders)
+    if (sessionDetail.value && data.messages.length !== sessionDetail.value.messages.length) {
+      sessionDetail.value = data
+    } else if (!sessionDetail.value) {
+      sessionDetail.value = data
+    }
+  }
+  catch {}
+}
+
+watch(selectedSession, (val) => {
+  if (pollDetailTimer) clearInterval(pollDetailTimer)
+  if (val) {
+    pollDetailTimer = setInterval(pollDetail, 3000)
+  }
+})
+
+onMounted(() => {
+  fetchSessions()
+  pollSessionsTimer = setInterval(fetchSessions, 5000)
+})
+
+onUnmounted(() => {
+  if (pollSessionsTimer) clearInterval(pollSessionsTimer)
+  if (pollDetailTimer) clearInterval(pollDetailTimer)
+})
 </script>
 
 <template>
