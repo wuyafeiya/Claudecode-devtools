@@ -83,6 +83,51 @@ router.get('/skills/search', async (req, res) => {
   }
 })
 
+router.get('/skills/check-updates', async (_req, res) => {
+  try {
+    const raw = execSync('pnpx skills check 2>&1', {
+      encoding: 'utf-8',
+      timeout: 30000,
+    })
+    const clean = stripAnsi(raw)
+    const updates: Array<{ name: string, source: string }> = []
+    const lines = clean.split('\n')
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].match(/^\s*(?:↑|->)\s*(\S+)/)
+      if (match) {
+        let source = ''
+        if (i + 1 < lines.length) {
+          const srcMatch = lines[i + 1].match(/source:\s*(\S+)/)
+          if (srcMatch)
+            source = srcMatch[1]
+        }
+        updates.push({ name: match[1], source })
+      }
+    }
+    res.json({ count: updates.length, updates })
+  }
+  catch (err) {
+    res.status(500).json({ error: 'Check failed', detail: String(err) })
+  }
+})
+
+router.post('/skills/update-all', async (_req, res) => {
+  try {
+    const raw = execSync('pnpx skills update 2>&1', {
+      encoding: 'utf-8',
+      timeout: 120000,
+    })
+    const clean = stripAnsi(raw)
+    const updatedMatch = clean.match(/Updated (\d+) skill/)
+    const count = updatedMatch ? Number(updatedMatch[1]) : 0
+    res.json({ ok: true, count, output: clean })
+  }
+  catch (err: any) {
+    const output = err.stdout ? stripAnsi(String(err.stdout)) : ''
+    res.status(500).json({ error: 'Update failed', detail: String(err.message), output })
+  }
+})
+
 router.get('/skills/:name', async (req, res) => {
   try {
     const skillFile = join(paths.skills, req.params.name, 'SKILL.md')

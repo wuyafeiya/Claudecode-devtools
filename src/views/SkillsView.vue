@@ -41,6 +41,16 @@ const searchError = ref('')
 const installingRef = ref<string | null>(null)
 const installMessage = ref('')
 
+// Update state
+interface UpdateInfo {
+  name: string
+  source: string
+}
+const updatesAvailable = ref<UpdateInfo[]>([])
+const checkingUpdates = ref(false)
+const updatingAll = ref(false)
+const updateMessage = ref('')
+
 async function fetchSkillsAndPlugins() {
   refreshing.value = true
   try {
@@ -119,6 +129,56 @@ async function installSkill(result: SearchResult) {
 function isInstalled(result: SearchResult): boolean {
   return skills.value.some(s => s.name === result.name)
 }
+
+async function checkUpdates() {
+  checkingUpdates.value = true
+  updateMessage.value = ''
+  try {
+    const res = await fetch('/api/skills/check-updates')
+    const data = await res.json()
+    if (res.ok) {
+      updatesAvailable.value = data.updates
+      if (data.count === 0)
+        updateMessage.value = 'All skills are up to date'
+      else
+        updateMessage.value = `${data.count} update(s) available`
+      setTimeout(() => updateMessage.value = '', 5000)
+    }
+    else {
+      updateMessage.value = `Check failed: ${data.error}`
+    }
+  }
+  catch (err) {
+    updateMessage.value = `Error: ${err}`
+  }
+  finally {
+    checkingUpdates.value = false
+  }
+}
+
+async function updateAll() {
+  updatingAll.value = true
+  updateMessage.value = 'Updating skills...'
+  try {
+    const res = await fetch('/api/skills/update-all', { method: 'POST' })
+    const data = await res.json()
+    if (res.ok) {
+      updateMessage.value = `Updated ${data.count} skill(s)`
+      updatesAvailable.value = []
+      await fetchSkillsAndPlugins()
+      setTimeout(() => updateMessage.value = '', 5000)
+    }
+    else {
+      updateMessage.value = `Update failed: ${data.error}`
+    }
+  }
+  catch (err) {
+    updateMessage.value = `Error: ${err}`
+  }
+  finally {
+    updatingAll.value = false
+  }
+}
 </script>
 
 <template>
@@ -141,6 +201,37 @@ function isInstalled(result: SearchResult): boolean {
       >
         {{ showSearch ? 'Close Search' : 'Search & Install' }}
       </button>
+      <button
+        class="px-2 py-1 text-xs bg-surface-light hover:bg-surface-lighter text-text-muted hover:text-text rounded border border-white/10 transition-colors disabled:opacity-40"
+        :disabled="checkingUpdates || updatingAll"
+        @click="checkUpdates"
+      >
+        {{ checkingUpdates ? 'Checking...' : 'Check Updates' }}
+      </button>
+    </div>
+
+    <!-- Update banner -->
+    <div v-if="updateMessage" class="mb-4 px-3 py-2 rounded-lg border text-xs"
+      :class="updatesAvailable.length > 0
+        ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-300'
+        : 'bg-green-500/10 border-green-500/30 text-green-300'"
+    >
+      <div class="flex items-center justify-between">
+        <span>{{ updateMessage }}</span>
+        <button
+          v-if="updatesAvailable.length > 0"
+          class="px-3 py-1 bg-yellow-500 text-surface rounded text-xs font-medium disabled:opacity-40 hover:bg-yellow-400 transition-colors"
+          :disabled="updatingAll"
+          @click="updateAll"
+        >
+          {{ updatingAll ? 'Updating...' : 'Update All' }}
+        </button>
+      </div>
+      <div v-if="updatesAvailable.length > 0" class="mt-2 space-y-1">
+        <div v-for="u in updatesAvailable" :key="u.name" class="text-xs text-text-muted">
+          &#x2191; {{ u.name }} <span v-if="u.source" class="opacity-60">from {{ u.source }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- Search panel -->
