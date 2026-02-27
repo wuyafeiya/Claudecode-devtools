@@ -2,8 +2,6 @@
 
 A local web dashboard that launches automatically with Claude Code CLI sessions, providing a browser-based interface to manage your Claude Code configuration and skills/plugins.
 
-![Skills & Plugins](https://github.com/wuyafeiya/Claudecode-devtools/assets/screenshot.png)
-
 ## Features
 
 ### Configuration Management
