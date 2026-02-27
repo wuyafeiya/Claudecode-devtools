@@ -14,7 +14,6 @@ onMounted(async () => {
 const navItems = [
   { path: '/config', label: 'Configuration', icon: 'i-carbon-settings' },
   { path: '/skills', label: 'Skills & Plugins', icon: 'i-carbon-plug' },
-  { path: '/history', label: 'History', icon: 'i-carbon-chat' },
 ]
 </script>
 

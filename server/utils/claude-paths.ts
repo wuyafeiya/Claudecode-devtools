@@ -10,5 +10,4 @@ export const paths = {
   plugins: join(CLAUDE_DIR, 'plugins'),
   pluginManifest: join(CLAUDE_DIR, 'plugins', 'installed_plugins.json'),
   history: join(CLAUDE_DIR, 'history.jsonl'),
-  projects: join(CLAUDE_DIR, 'projects'),
 }
