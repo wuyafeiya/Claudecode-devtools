@@ -62,7 +62,9 @@ onMounted(fetchSkillsAndPlugins)
 async function togglePlugin(plugin: Plugin) {
   try {
     const res = await apiPut(`/api/plugins/${encodeURIComponent(plugin.id)}/toggle`, {})
-    plugin.enabled = res.enabled
+    const idx = plugins.value.findIndex(p => p.id === plugin.id)
+    if (idx !== -1)
+      plugins.value[idx] = { ...plugin, enabled: res.enabled }
   }
   catch (err) {
     console.error('Failed to toggle plugin:', err)
@@ -220,16 +222,21 @@ function isInstalled(result: SearchResult): boolean {
                 v{{ plugin.installs[0]?.version }} &middot; {{ plugin.installs[0]?.scope }}
               </p>
             </div>
-            <button
-              class="relative w-10 h-5 rounded-full transition-colors"
-              :class="plugin.enabled ? 'bg-accent' : 'bg-white/20'"
-              @click="togglePlugin(plugin)"
-            >
-              <span
-                class="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-                :class="plugin.enabled ? 'translate-x-5' : 'translate-x-0.5'"
-              />
-            </button>
+            <div class="flex items-center gap-2">
+              <span class="text-xs" :class="plugin.enabled ? 'text-green-400' : 'text-text-muted'">
+                {{ plugin.enabled ? 'ON' : 'OFF' }}
+              </span>
+              <button
+                class="relative w-11 h-6 rounded-full transition-colors duration-200"
+                :class="plugin.enabled ? 'bg-green-500' : 'bg-white/15'"
+                @click="togglePlugin(plugin)"
+              >
+                <span
+                  class="absolute top-1 left-1 w-4 h-4 rounded-full bg-white transition-all duration-200 shadow"
+                  :style="{ transform: plugin.enabled ? 'translateX(20px)' : 'translateX(0)' }"
+                />
+              </button>
+            </div>
           </div>
         </div>
       </section>
