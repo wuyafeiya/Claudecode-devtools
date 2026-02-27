@@ -2,6 +2,183 @@
 import { ref, onMounted, computed } from 'vue'
 import { apiPut } from '@/composables/useApi'
 
+// ── i18n ──
+type Locale = 'en' | 'zh'
+
+const locale = ref<Locale>((localStorage.getItem('dashboard-locale') as Locale) || 'en')
+
+function setLocale(l: Locale) {
+  locale.value = l
+  localStorage.setItem('dashboard-locale', l)
+}
+
+const messages: Record<Locale, Record<string, string>> = {
+  en: {
+    'title': 'Configuration',
+    'refresh': 'Refresh',
+    'refreshing': 'Refreshing...',
+    'save': 'Save',
+    'saving': 'Saving...',
+    'saved': 'Saved',
+    'loading': 'Loading...',
+
+    'tab.general': 'General',
+    'tab.env': 'Environment',
+    'tab.permissions': 'Permissions',
+    'tab.hooks': 'Hooks',
+    'tab.raw': 'JSON',
+
+    'model.title': 'Model',
+    'model.desc': 'Select the Claude model to use',
+    'model.opus': 'Most capable',
+    'model.sonnet': 'Balanced',
+    'model.haiku': 'Fast & light',
+
+    'updates.title': 'Auto Updates',
+    'updates.desc': 'Update channel',
+    'updates.stable': 'Stable',
+    'updates.preview': 'Preview',
+
+    'dangerous.title': 'Skip Dangerous Mode Prompt',
+    'dangerous.desc': 'Auto-accept without confirmation',
+    'on': 'ON',
+    'off': 'OFF',
+
+    'env.subtitle': 'Environment variables for Claude Code',
+    'env.show': 'Show',
+    'env.hide': 'Hide',
+    'env.add.title': 'Add Variable',
+    'env.add.btn': 'Add',
+    'env.desc.base_url': 'API Base URL',
+    'env.desc.auth_token': 'API Auth Token',
+    'env.desc.telemetry': 'Telemetry (1=on, 0=off)',
+    'env.desc.http_proxy': 'HTTP Proxy',
+    'env.desc.https_proxy': 'HTTPS Proxy',
+    'env.desc.proxy_resolves': 'Proxy Resolves Hosts',
+    'env.desc.disable_traffic': 'Disable Non-essential Traffic',
+
+    'perm.mode.title': 'Default Mode',
+    'perm.mode.desc': 'How Claude handles permissions',
+    'perm.mode.accept': 'Accept Edits',
+    'perm.mode.accept.desc': 'Auto-accept file edits',
+    'perm.mode.plan': 'Plan',
+    'perm.mode.plan.desc': 'Plan mode',
+    'perm.mode.bypass': 'Bypass',
+    'perm.mode.bypass.desc': 'Bypass all permissions (dangerous)',
+    'perm.allow.title': 'Allow List',
+    'perm.allow.desc': 'Auto-allowed tools and permissions',
+    'perm.deny.title': 'Deny List',
+    'perm.deny.desc': 'Always denied tools and permissions',
+    'perm.empty': 'Empty',
+    'perm.add': 'Add',
+
+    'hooks.subtitle': 'Lifecycle hooks (read-only, edit in JSON tab)',
+    'hooks.empty': 'No hooks configured',
+
+    'raw.subtitle': 'Raw settings.json',
+    'raw.invalid': 'Invalid JSON',
+  },
+  zh: {
+    'title': '配置',
+    'refresh': '刷新',
+    'refreshing': '刷新中...',
+    'save': '保存',
+    'saving': '保存中...',
+    'saved': '已保存',
+    'loading': '加载中...',
+
+    'tab.general': '常规',
+    'tab.env': '环境变量',
+    'tab.permissions': '权限',
+    'tab.hooks': '钩子',
+    'tab.raw': 'JSON',
+
+    'model.title': '模型',
+    'model.desc': '选择要使用的 Claude 模型',
+    'model.opus': '最强模型',
+    'model.sonnet': '均衡模型',
+    'model.haiku': '快速轻量',
+
+    'updates.title': '自动更新',
+    'updates.desc': '更新通道',
+    'updates.stable': '稳定版',
+    'updates.preview': '预览版',
+
+    'dangerous.title': '跳过危险模式提示',
+    'dangerous.desc': '无需确认自动接受',
+    'on': '开',
+    'off': '关',
+
+    'env.subtitle': 'Claude Code 环境变量',
+    'env.show': '显示',
+    'env.hide': '隐藏',
+    'env.add.title': '添加变量',
+    'env.add.btn': '添加',
+    'env.desc.base_url': 'API 基础地址',
+    'env.desc.auth_token': 'API 认证令牌',
+    'env.desc.telemetry': '遥测 (1=开, 0=关)',
+    'env.desc.http_proxy': 'HTTP 代理',
+    'env.desc.https_proxy': 'HTTPS 代理',
+    'env.desc.proxy_resolves': '代理解析主机',
+    'env.desc.disable_traffic': '禁用非必要流量',
+
+    'perm.mode.title': '默认模式',
+    'perm.mode.desc': 'Claude 如何处理权限',
+    'perm.mode.accept': '接受编辑',
+    'perm.mode.accept.desc': '自动接受文件编辑',
+    'perm.mode.plan': '计划',
+    'perm.mode.plan.desc': '计划模式',
+    'perm.mode.bypass': '绕过',
+    'perm.mode.bypass.desc': '绕过所有权限（危险）',
+    'perm.allow.title': '允许列表',
+    'perm.allow.desc': '自动允许的工具和权限',
+    'perm.deny.title': '拒绝列表',
+    'perm.deny.desc': '始终拒绝的工具和权限',
+    'perm.empty': '空',
+    'perm.add': '添加',
+
+    'hooks.subtitle': '生命周期钩子（只读，请在 JSON 标签页编辑）',
+    'hooks.empty': '未配置钩子',
+
+    'raw.subtitle': '原始配置文件',
+    'raw.invalid': 'JSON 格式错误',
+  },
+}
+
+function t(key: string): string {
+  return messages[locale.value][key] || key
+}
+
+const envDescKeys: Record<string, string> = {
+  ANTHROPIC_BASE_URL: 'env.desc.base_url',
+  ANTHROPIC_AUTH_TOKEN: 'env.desc.auth_token',
+  CLAUDE_CODE_ENABLE_TELEMETRY: 'env.desc.telemetry',
+  HTTP_PROXY: 'env.desc.http_proxy',
+  HTTPS_PROXY: 'env.desc.https_proxy',
+  CLAUDE_CODE_PROXY_RESOLVES_HOSTS: 'env.desc.proxy_resolves',
+  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 'env.desc.disable_traffic',
+}
+
+const tabKeys = ['general', 'env', 'permissions', 'hooks', 'raw']
+
+const modelOptions = [
+  { value: 'opus', label: 'Opus', descKey: 'model.opus' },
+  { value: 'sonnet', label: 'Sonnet', descKey: 'model.sonnet' },
+  { value: 'haiku', label: 'Haiku', descKey: 'model.haiku' },
+]
+
+const updateChannelOptions = [
+  { value: 'stable', labelKey: 'updates.stable' },
+  { value: 'preview', labelKey: 'updates.preview' },
+]
+
+const permissionModeOptions = [
+  { value: 'acceptEdits', labelKey: 'perm.mode.accept', descKey: 'perm.mode.accept.desc' },
+  { value: 'plan', labelKey: 'perm.mode.plan', descKey: 'perm.mode.plan.desc' },
+  { value: 'bypassPermissions', labelKey: 'perm.mode.bypass', descKey: 'perm.mode.bypass.desc' },
+]
+
+// ── State ──
 const config = ref<Record<string, any> | null>(null)
 const loading = ref(true)
 const saving = ref(false)
@@ -9,57 +186,17 @@ const saveMessage = ref('')
 const activeTab = ref('general')
 const refreshing = ref(false)
 
-const tabs = [
-  { key: 'general', zh: '常规', en: 'General' },
-  { key: 'env', zh: '环境变量', en: 'Env' },
-  { key: 'permissions', zh: '权限', en: 'Permissions' },
-  { key: 'hooks', zh: '钩子', en: 'Hooks' },
-  { key: 'raw', zh: '原始', en: 'JSON' },
-]
-
-const modelOptions = [
-  { value: 'opus', label: 'Opus', desc: 'Most capable / 最强模型' },
-  { value: 'sonnet', label: 'Sonnet', desc: 'Balanced / 均衡模型' },
-  { value: 'haiku', label: 'Haiku', desc: 'Fast & light / 快速轻量' },
-]
-
-const updateChannelOptions = [
-  { value: 'stable', label: 'Stable', desc: '稳定版' },
-  { value: 'preview', label: 'Preview', desc: '预览版' },
-]
-
-const permissionModeOptions = [
-  { value: 'acceptEdits', label: 'Accept Edits', desc: '自动接受编辑' },
-  { value: 'plan', label: 'Plan', desc: '计划模式' },
-  { value: 'bypassPermissions', label: 'Bypass', desc: '绕过权限 (危险)' },
-]
-
-const envDescriptions: Record<string, string> = {
-  ANTHROPIC_BASE_URL: 'API Base URL / API 基础地址',
-  ANTHROPIC_AUTH_TOKEN: 'API Auth Token / API 认证令牌',
-  CLAUDE_CODE_ENABLE_TELEMETRY: 'Telemetry / 遥测 (1=on, 0=off)',
-  HTTP_PROXY: 'HTTP Proxy / HTTP 代理',
-  HTTPS_PROXY: 'HTTPS Proxy / HTTPS 代理',
-  CLAUDE_CODE_PROXY_RESOLVES_HOSTS: 'Proxy Resolves Hosts / 代理解析主机',
-  CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: 'Disable Non-essential Traffic / 禁用非必要流量',
-}
-
-// Env
 const newEnvKey = ref('')
 const newEnvValue = ref('')
-
-// Permissions
 const newAllow = ref('')
 const newDeny = ref('')
 
-// Raw JSON
 const rawJson = ref('')
 const rawJsonValid = computed(() => {
   try { JSON.parse(rawJson.value); return true }
   catch { return false }
 })
 
-// Secret visibility
 const visibleSecrets = ref<Record<string, boolean>>({})
 
 function isSensitive(key: string): boolean {
@@ -77,6 +214,7 @@ function selectTab(key: string) {
     rawJson.value = JSON.stringify(config.value, null, 2)
 }
 
+// ── Data ──
 async function fetchConfig() {
   refreshing.value = true
   try {
@@ -102,7 +240,7 @@ async function save() {
   saveMessage.value = ''
   try {
     await apiPut('/api/config', config.value)
-    saveMessage.value = 'Saved / 已保存'
+    saveMessage.value = t('saved')
     rawJson.value = JSON.stringify(config.value, null, 2)
     setTimeout(() => saveMessage.value = '', 3000)
   }
@@ -126,7 +264,7 @@ async function saveFromRaw() {
     if (!config.value!.permissions) config.value!.permissions = {}
     if (!config.value!.permissions.allow) config.value!.permissions.allow = []
     if (!config.value!.permissions.deny) config.value!.permissions.deny = []
-    saveMessage.value = 'Saved / 已保存'
+    saveMessage.value = t('saved')
     setTimeout(() => saveMessage.value = '', 3000)
   }
   catch (err) {
@@ -185,16 +323,33 @@ const hooksEntries = computed(() => {
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-3">
-        <h2 class="text-xl font-bold text-accent">Configuration / 配置</h2>
+        <h2 class="text-xl font-bold text-accent">{{ t('title') }}</h2>
         <button
           class="px-2 py-1 text-xs bg-surface-light hover:bg-surface-lighter text-text-muted hover:text-text rounded border border-white/10 transition-colors disabled:opacity-40"
           :disabled="refreshing"
           @click="fetchConfig"
         >
-          {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+          {{ refreshing ? t('refreshing') : t('refresh') }}
         </button>
       </div>
       <div class="flex items-center gap-3">
+        <!-- Language toggle -->
+        <div class="flex rounded border border-white/10 overflow-hidden text-xs">
+          <button
+            class="px-2 py-1 transition-colors"
+            :class="locale === 'en' ? 'bg-accent text-surface' : 'text-text-muted hover:text-text'"
+            @click="setLocale('en')"
+          >
+            EN
+          </button>
+          <button
+            class="px-2 py-1 transition-colors border-l border-white/10"
+            :class="locale === 'zh' ? 'bg-accent text-surface' : 'text-text-muted hover:text-text'"
+            @click="setLocale('zh')"
+          >
+            中文
+          </button>
+        </div>
         <span v-if="saveMessage" class="text-sm text-green-400">{{ saveMessage }}</span>
         <button
           v-if="activeTab !== 'raw' && activeTab !== 'hooks'"
@@ -202,27 +357,26 @@ const hooksEntries = computed(() => {
           :disabled="saving"
           @click="save"
         >
-          {{ saving ? 'Saving...' : 'Save / 保存' }}
+          {{ saving ? t('saving') : t('save') }}
         </button>
       </div>
     </div>
 
-    <div v-if="loading" class="text-text-muted">Loading...</div>
+    <div v-if="loading" class="text-text-muted">{{ t('loading') }}</div>
 
     <div v-else-if="config">
       <!-- Tab bar -->
       <div class="flex gap-1 border-b border-white/10 mb-6">
         <button
-          v-for="tab in tabs"
-          :key="tab.key"
+          v-for="key in tabKeys"
+          :key="key"
           class="px-4 py-2 text-sm transition-colors border-b-2 -mb-px"
-          :class="activeTab === tab.key
+          :class="activeTab === key
             ? 'border-accent text-accent'
             : 'border-transparent text-text-muted hover:text-text'"
-          @click="selectTab(tab.key)"
+          @click="selectTab(key)"
         >
-          {{ tab.zh }}
-          <span class="opacity-50 ml-0.5">{{ tab.en }}</span>
+          {{ t(`tab.${key}`) }}
         </button>
       </div>
 
@@ -230,8 +384,8 @@ const hooksEntries = computed(() => {
       <div v-if="activeTab === 'general'" class="space-y-8 max-w-2xl">
         <!-- Model -->
         <div>
-          <h3 class="text-sm font-semibold text-text mb-1">Model / 模型</h3>
-          <p class="text-xs text-text-muted mb-3">Select the Claude model / 选择 Claude 模型</p>
+          <h3 class="text-sm font-semibold text-text mb-1">{{ t('model.title') }}</h3>
+          <p class="text-xs text-text-muted mb-3">{{ t('model.desc') }}</p>
           <div class="grid grid-cols-3 gap-2">
             <button
               v-for="opt in modelOptions"
@@ -243,15 +397,15 @@ const hooksEntries = computed(() => {
               @click="config.model = opt.value"
             >
               <p class="text-sm font-medium">{{ opt.label }}</p>
-              <p class="text-xs opacity-60 mt-0.5">{{ opt.desc }}</p>
+              <p class="text-xs opacity-60 mt-0.5">{{ t(opt.descKey) }}</p>
             </button>
           </div>
         </div>
 
         <!-- Auto Updates -->
         <div>
-          <h3 class="text-sm font-semibold text-text mb-1">Auto Updates / 自动更新</h3>
-          <p class="text-xs text-text-muted mb-3">Update channel / 更新通道</p>
+          <h3 class="text-sm font-semibold text-text mb-1">{{ t('updates.title') }}</h3>
+          <p class="text-xs text-text-muted mb-3">{{ t('updates.desc') }}</p>
           <div class="flex gap-2">
             <button
               v-for="opt in updateChannelOptions"
@@ -262,8 +416,7 @@ const hooksEntries = computed(() => {
                 : 'border-white/10 hover:border-white/20 text-text'"
               @click="config.autoUpdatesChannel = opt.value"
             >
-              {{ opt.label }}
-              <span class="opacity-60 ml-1">{{ opt.desc }}</span>
+              {{ t(opt.labelKey) }}
             </button>
           </div>
         </div>
@@ -271,12 +424,12 @@ const hooksEntries = computed(() => {
         <!-- Skip Dangerous Mode -->
         <div class="flex items-center justify-between bg-surface-light rounded-lg border border-white/10 p-4">
           <div>
-            <h3 class="text-sm font-semibold text-text">Skip Dangerous Mode Prompt / 跳过危险模式提示</h3>
-            <p class="text-xs text-text-muted mt-0.5">Auto-accept without confirmation / 无需确认自动接受</p>
+            <h3 class="text-sm font-semibold text-text">{{ t('dangerous.title') }}</h3>
+            <p class="text-xs text-text-muted mt-0.5">{{ t('dangerous.desc') }}</p>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs" :class="config.skipDangerousModePermissionPrompt ? 'text-green-400' : 'text-text-muted'">
-              {{ config.skipDangerousModePermissionPrompt ? 'ON' : 'OFF' }}
+              {{ config.skipDangerousModePermissionPrompt ? t('on') : t('off') }}
             </span>
             <button
               class="relative w-11 h-6 rounded-full transition-colors duration-200"
@@ -294,9 +447,7 @@ const hooksEntries = computed(() => {
 
       <!-- ==================== ENV ==================== -->
       <div v-if="activeTab === 'env'" class="max-w-3xl">
-        <p class="text-xs text-text-muted mb-4">
-          Environment variables for Claude Code / Claude Code 环境变量
-        </p>
+        <p class="text-xs text-text-muted mb-4">{{ t('env.subtitle') }}</p>
         <div class="space-y-3">
           <div
             v-for="(_value, key) in config.env"
@@ -306,13 +457,12 @@ const hooksEntries = computed(() => {
             <div class="flex items-center justify-between mb-1.5">
               <div>
                 <p class="text-sm text-accent font-mono font-medium">{{ key }}</p>
-                <p v-if="envDescriptions[String(key)]" class="text-xs text-text-muted">
-                  {{ envDescriptions[String(key)] }}
+                <p v-if="envDescKeys[String(key)]" class="text-xs text-text-muted">
+                  {{ t(envDescKeys[String(key)]) }}
                 </p>
               </div>
               <button
                 class="text-text-muted hover:text-red-400 transition-colors text-sm px-2"
-                title="Remove / 删除"
                 @click="removeEnvVar(String(key))"
               >
                 &#x2715;
@@ -330,7 +480,7 @@ const hooksEntries = computed(() => {
                 class="px-2.5 py-1 text-xs bg-surface hover:bg-surface-lighter text-text-muted hover:text-text rounded border border-white/10 transition-colors whitespace-nowrap"
                 @click="toggleSecret(String(key))"
               >
-                {{ visibleSecrets[String(key)] ? 'Hide / 隐藏' : 'Show / 显示' }}
+                {{ visibleSecrets[String(key)] ? t('env.hide') : t('env.show') }}
               </button>
             </div>
           </div>
@@ -338,7 +488,7 @@ const hooksEntries = computed(() => {
 
         <!-- Add new env var -->
         <div class="border-t border-white/10 pt-4 mt-4">
-          <p class="text-xs text-text-muted mb-2">Add Variable / 添加变量</p>
+          <p class="text-xs text-text-muted mb-2">{{ t('env.add.title') }}</p>
           <div class="flex gap-2">
             <input
               v-model="newEnvKey"
@@ -357,7 +507,7 @@ const hooksEntries = computed(() => {
               :disabled="!newEnvKey.trim()"
               @click="addEnvVar"
             >
-              Add / 添加
+              {{ t('env.add.btn') }}
             </button>
           </div>
         </div>
@@ -367,8 +517,8 @@ const hooksEntries = computed(() => {
       <div v-if="activeTab === 'permissions'" class="space-y-8 max-w-2xl">
         <!-- Default Mode -->
         <div>
-          <h3 class="text-sm font-semibold text-text mb-1">Default Mode / 默认模式</h3>
-          <p class="text-xs text-text-muted mb-3">How Claude handles permissions / Claude 如何处理权限</p>
+          <h3 class="text-sm font-semibold text-text mb-1">{{ t('perm.mode.title') }}</h3>
+          <p class="text-xs text-text-muted mb-3">{{ t('perm.mode.desc') }}</p>
           <div class="space-y-2">
             <button
               v-for="opt in permissionModeOptions"
@@ -384,9 +534,9 @@ const hooksEntries = computed(() => {
                   class="text-sm font-medium"
                   :class="config.permissions.defaultMode === opt.value ? 'text-accent' : 'text-text'"
                 >
-                  {{ opt.label }}
+                  {{ t(opt.labelKey) }}
                 </p>
-                <p class="text-xs opacity-60">{{ opt.desc }}</p>
+                <p class="text-xs opacity-60">{{ t(opt.descKey) }}</p>
               </div>
               <span v-if="config.permissions.defaultMode === opt.value" class="text-accent text-lg">&#10003;</span>
             </button>
@@ -395,8 +545,8 @@ const hooksEntries = computed(() => {
 
         <!-- Allow list -->
         <div>
-          <h3 class="text-sm font-semibold text-text mb-1">Allow List / 允许列表</h3>
-          <p class="text-xs text-text-muted mb-3">Auto-allowed tools / 自动允许的工具</p>
+          <h3 class="text-sm font-semibold text-text mb-1">{{ t('perm.allow.title') }}</h3>
+          <p class="text-xs text-text-muted mb-3">{{ t('perm.allow.desc') }}</p>
           <div class="flex flex-wrap gap-2 mb-3">
             <span
               v-for="(item, idx) in config.permissions.allow"
@@ -410,7 +560,7 @@ const hooksEntries = computed(() => {
               >&#x2715;</button>
             </span>
             <span v-if="config.permissions.allow.length === 0" class="text-xs text-text-muted italic">
-              Empty / 空
+              {{ t('perm.empty') }}
             </span>
           </div>
           <div class="flex gap-2">
@@ -425,15 +575,15 @@ const hooksEntries = computed(() => {
               :disabled="!newAllow.trim()"
               @click="addAllow"
             >
-              Add
+              {{ t('perm.add') }}
             </button>
           </div>
         </div>
 
         <!-- Deny list -->
         <div>
-          <h3 class="text-sm font-semibold text-text mb-1">Deny List / 拒绝列表</h3>
-          <p class="text-xs text-text-muted mb-3">Always denied tools / 始终拒绝的工具</p>
+          <h3 class="text-sm font-semibold text-text mb-1">{{ t('perm.deny.title') }}</h3>
+          <p class="text-xs text-text-muted mb-3">{{ t('perm.deny.desc') }}</p>
           <div class="flex flex-wrap gap-2 mb-3">
             <span
               v-for="(item, idx) in config.permissions.deny"
@@ -447,7 +597,7 @@ const hooksEntries = computed(() => {
               >&#x2715;</button>
             </span>
             <span v-if="config.permissions.deny.length === 0" class="text-xs text-text-muted italic">
-              Empty / 空
+              {{ t('perm.empty') }}
             </span>
           </div>
           <div class="flex gap-2">
@@ -462,7 +612,7 @@ const hooksEntries = computed(() => {
               :disabled="!newDeny.trim()"
               @click="addDeny"
             >
-              Add
+              {{ t('perm.add') }}
             </button>
           </div>
         </div>
@@ -470,11 +620,9 @@ const hooksEntries = computed(() => {
 
       <!-- ==================== HOOKS ==================== -->
       <div v-if="activeTab === 'hooks'" class="max-w-2xl">
-        <p class="text-xs text-text-muted mb-4">
-          Lifecycle hooks (read-only, edit in JSON tab) / 生命周期钩子（只读，请在 JSON 标签页编辑）
-        </p>
+        <p class="text-xs text-text-muted mb-4">{{ t('hooks.subtitle') }}</p>
         <div v-if="hooksEntries.length === 0" class="text-text-muted text-sm py-4">
-          No hooks configured / 未配置钩子
+          {{ t('hooks.empty') }}
         </div>
         <div v-else class="space-y-4">
           <div
@@ -512,12 +660,8 @@ const hooksEntries = computed(() => {
       <!-- ==================== RAW JSON ==================== -->
       <div v-if="activeTab === 'raw'" class="flex flex-col h-[calc(100vh-12rem)]">
         <div class="flex items-center gap-3 mb-2">
-          <span class="text-xs text-text-muted">
-            Raw settings.json / 原始配置文件
-          </span>
-          <span v-if="!rawJsonValid" class="text-xs text-red-400">
-            Invalid JSON / JSON 格式错误
-          </span>
+          <span class="text-xs text-text-muted">{{ t('raw.subtitle') }}</span>
+          <span v-if="!rawJsonValid" class="text-xs text-red-400">{{ t('raw.invalid') }}</span>
         </div>
         <textarea
           v-model="rawJson"
@@ -530,7 +674,7 @@ const hooksEntries = computed(() => {
             class="px-4 py-2 bg-accent text-surface rounded text-sm font-medium disabled:opacity-40 hover:bg-accent-light transition-colors"
             @click="saveFromRaw"
           >
-            {{ saving ? 'Saving...' : 'Save / 保存' }}
+            {{ saving ? t('saving') : t('save') }}
           </button>
           <span v-if="saveMessage && activeTab === 'raw'" class="text-sm text-green-400">
             {{ saveMessage }}
