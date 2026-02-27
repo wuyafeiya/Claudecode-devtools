@@ -7,12 +7,25 @@ const editingJson = ref('')
 const saving = ref(false)
 const saveMessage = ref('')
 const activeSection = ref<string | null>(null)
+const refreshing = ref(false)
 
-onMounted(async () => {
-  const res = await fetch('/api/config')
-  config.value = await res.json()
-  editingJson.value = JSON.stringify(config.value, null, 2)
-})
+async function fetchConfig() {
+  refreshing.value = true
+  try {
+    const res = await fetch('/api/config')
+    config.value = await res.json()
+    editingJson.value = JSON.stringify(
+      activeSection.value ? config.value![activeSection.value] : config.value,
+      null,
+      2,
+    )
+  }
+  finally {
+    refreshing.value = false
+  }
+}
+
+onMounted(fetchConfig)
 
 const sections = computed(() => {
   if (!config.value) return []
@@ -68,7 +81,16 @@ async function save() {
 
 <template>
   <div>
-    <h2 class="text-xl font-bold text-accent mb-4">Configuration</h2>
+    <div class="flex items-center gap-3 mb-4">
+      <h2 class="text-xl font-bold text-accent">Configuration</h2>
+      <button
+        class="px-2 py-1 text-xs bg-surface-light hover:bg-surface-lighter text-text-muted hover:text-text rounded border border-white/10 transition-colors disabled:opacity-40"
+        :disabled="refreshing"
+        @click="fetchConfig"
+      >
+        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
 
     <div v-if="!config" class="text-text-muted">Loading...</div>
 

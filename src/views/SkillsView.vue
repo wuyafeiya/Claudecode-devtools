@@ -22,16 +22,25 @@ interface Plugin {
 const skills = ref<Skill[]>([])
 const plugins = ref<Plugin[]>([])
 const loading = ref(true)
+const refreshing = ref(false)
 
-onMounted(async () => {
-  const [skillsRes, pluginsRes] = await Promise.all([
-    fetch('/api/skills'),
-    fetch('/api/plugins'),
-  ])
-  skills.value = await skillsRes.json()
-  plugins.value = await pluginsRes.json()
-  loading.value = false
-})
+async function fetchSkillsAndPlugins() {
+  refreshing.value = true
+  try {
+    const [skillsRes, pluginsRes] = await Promise.all([
+      fetch('/api/skills'),
+      fetch('/api/plugins'),
+    ])
+    skills.value = await skillsRes.json()
+    plugins.value = await pluginsRes.json()
+  }
+  finally {
+    loading.value = false
+    refreshing.value = false
+  }
+}
+
+onMounted(fetchSkillsAndPlugins)
 
 async function togglePlugin(plugin: Plugin) {
   try {
@@ -46,7 +55,16 @@ async function togglePlugin(plugin: Plugin) {
 
 <template>
   <div>
-    <h2 class="text-xl font-bold text-accent mb-4">Skills & Plugins</h2>
+    <div class="flex items-center gap-3 mb-4">
+      <h2 class="text-xl font-bold text-accent">Skills & Plugins</h2>
+      <button
+        class="px-2 py-1 text-xs bg-surface-light hover:bg-surface-lighter text-text-muted hover:text-text rounded border border-white/10 transition-colors disabled:opacity-40"
+        :disabled="refreshing"
+        @click="fetchSkillsAndPlugins"
+      >
+        {{ refreshing ? 'Refreshing...' : 'Refresh' }}
+      </button>
+    </div>
 
     <div v-if="loading" class="text-text-muted">Loading...</div>
 
